@@ -12,10 +12,17 @@ var mongoUri = process.env.MONGOLAB_URI ||
 var db = monk(mongoUri);
 
 app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
+  var users = db.get('users');
   var collection = db.get('games');
   object = {
-    p1Id : req.params.p1Id,
-    p2Id : req.params.p2Id,
+    p1 : {
+      id : req.params.p1Id,
+      pictureURL : ""
+    },
+    p2 : {
+      id : req.params.p2Id,
+      pictureURL : ""
+    },
     playing : 2,
     p1Word : req.params.word,
     p2Word : "",
@@ -28,7 +35,20 @@ app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
   });
 });
  
-app.get('/play/:id/:word', function(req, res) {
+app.get('/completegame/:id/:word', function(req, res) {
+  var collection = db.get('games');
+  var query = {_id : req.params.id};
+  collection.find(query,{},function(e,docs) {
+    game = docs[0];
+    collection.update({_id : req.params.id},
+		      {$set : {p2Word : req.params.word}});
+    newGame = game;
+    newGame.p2Word = req.params.word;
+    res.send(newGame);
+  });
+});
+
+app.get('/play/:id/:word/:matched', function(req, res) {
   var collection = db.get('games');
   var query = {_id : req.params.id};
   var game;
@@ -39,10 +59,12 @@ app.get('/play/:id/:word', function(req, res) {
     newP2Guesses = game.p2Guesses;
     if (game.playing == 1) {
       newPlaying = 2;
-      newP1Guesses.push(req.params.word);
+      newP1Guesses.push({word : req.params.word,
+			 matched : req.params.matched});
     } else {
       newPlaying = 1;
-      newP2Guesses.push(req.params.word);
+      newP2Guesses.push({word : req.params.word,
+			 matched : req.params.matched});
     }
     collection.update({_id : req.params.id}, 
 		      {$set : {playing : newPlaying,
@@ -61,7 +83,7 @@ app.post('/login', function(req, res) {
   name = req.body.name,
   pictureURL = req.body.pictureURL,
   collection = db.get('users'),
-  query = {_id : id};
+  query = {id : id};
   collection.find(query, {}, function(e,docs) {
     if (docs.length == 0) {
       var object = {id : id, name : name, pictureURL : pictureURL};
@@ -69,7 +91,7 @@ app.post('/login', function(req, res) {
 	res.send(object);
       })
     } else {
-      res.send({ok : ok});
+      res.send({'ok' : 'ok'});
     }
   })
 });
@@ -83,7 +105,8 @@ app.get('/removegame/:id', function(req, res) {
 app.get('/endgame/:id/:res', function(req, res) {
   var collection = db.get('games');
   collection.update({_id : req.params.id}, 
-		    {$set : {gameStatus : req.params.res}});
+		    {$set : {gameStatus : req.params.res,
+			     playing : 0}});
 });
 
 app.get('/games', function(req, res) {
@@ -104,8 +127,8 @@ app.get('/games/:id', function(req, res) {
   var collection = db.get('games');
   var query = {
     $or : [
-      {p1Id : req.params.id},
-      {p2Id : req.params.id}
+      {"p1.id" : req.params.id},
+      {"p2.id" : req.params.id}
     ]
   };
   collection.find(query,{},function(e,docs) {
