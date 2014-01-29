@@ -3,24 +3,25 @@ var express = require('express')
 , monk = require('monk');
 app = express();
 
+app.use(express.bodyParser());
+
 var mongoUri = process.env.MONGOLAB_URI ||
   process.env.MONGOHQ_URL ||
   'mongodb://localhost/mydb';
 
 var db = monk(mongoUri);
 
-app.get('/addgame/:p1Name/:p1Id/:p2Name/:p2Id/:word', function(req, res) {
+app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
   var collection = db.get('games');
   object = {
-    p1Name : req.params.p1Name,
     p1Id : req.params.p1Id,
-    p2Name : req.params.p2Name,
     p2Id : req.params.p2Id,
     playing : 2,
     p1Word : req.params.word,
     p2Word : "",
     p1Guesses : [],
-    p2Guesses : []
+    p2Guesses : [],
+    gameStatus : 0
   };
   collection.insert(object, {safe : true}, function(err, records){
     res.send(object);
@@ -55,12 +56,38 @@ app.get('/play/:id/:word', function(req, res) {
   });
 });
 
+app.post('/login', function(req, res) {
+  var id = req.body.id,
+  name = req.body.name,
+  pictureURL = req.body.pictureURL,
+  collection = db.get('users'),
+  query = {_id : id};
+  collection.find(query, {}, function(e,docs) {
+    if (docs.length == 0) {
+      var object = {id : id, name : name, pictureURL : pictureURL};
+      collection.insert(object, {safe : true}, function(err, records) {
+	res.send(object);
+      })
+    } else {
+      res.send({ok : ok});
+    }
+  })
+});
+
 app.get('/removegame/:id', function(req, res) {
   var collection = db.get('games');
   collection.remove({_id : req.params.id});
   res.send({'ok' : 'ok'});
 });
-  
+  /*
+app.get('/endgame/:id/:res', function(req, res) {
+  var collection = db.get('games');
+  collection.update({_id : req.params.id}, 
+		    {$set : {playing : newPlaying,
+			     p1Guesses : newP1Guesses,
+			     p2Guesses : newP2Guesses}});
+  */
+
 app.get('/games', function(req, res) {
   var collection = db.get('games');
   collection.find({},{},function(e,docs) {
