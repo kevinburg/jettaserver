@@ -79,14 +79,12 @@ app.get('/removegame/:id', function(req, res) {
   collection.remove({_id : req.params.id});
   res.send({'ok' : 'ok'});
 });
-  /*
+
 app.get('/endgame/:id/:res', function(req, res) {
   var collection = db.get('games');
   collection.update({_id : req.params.id}, 
-		    {$set : {playing : newPlaying,
-			     p1Guesses : newP1Guesses,
-			     p2Guesses : newP2Guesses}});
-  */
+		    {$set : {gameStatus : req.params.res}});
+});
 
 app.get('/games', function(req, res) {
   var collection = db.get('games');
