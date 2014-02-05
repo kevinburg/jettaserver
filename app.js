@@ -1,6 +1,8 @@
 var express = require('express')
 , mongo = require('mongodb')
-, monk = require('monk');
+, monk = require('monk')
+, request = require('request')
+, https = require('https');
 app = express();
 
 app.use(express.bodyParser());
@@ -95,6 +97,26 @@ app.post('/login', function(req, res) {
     }
   })
 });
+
+app.get('/friends/:id/:token', function(req, res) {
+  request.get("https://graph.facebook.com/"+req.params.id+"/friends?access_token="+req.params.token, function(err, response, body) {
+    var ids = [];
+    var info = JSON.parse(body);
+    for (var i=0; i<info.data.length; i++) {
+      ids[i] = info.data[i].id;
+    }
+    var collection = db.get('users');
+    var query = {"id" : {$in : ids}};
+    collection.find(query, {}, function(e,docs) {
+      ids = [];
+      for (var i=0; i<docs.length; i++) {
+	ids[i] = docs[i].id;
+      }
+      res.send(ids);
+    });
+  })
+});
+
 
 app.get('/removegame/:id', function(req, res) {
   var collection = db.get('games');
