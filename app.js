@@ -113,7 +113,12 @@ app.get('/friends/:id/:token', function(req, res) {
     collection.find(query, {}, function(e,docs) {
       ids = [];
       for (var i=0; i<docs.length; i++) {
-	ids[i] = docs[i].id;
+	var object = {
+	  id : docs[i].id,
+	  win : 5,
+	  loss : 3
+	};
+	ids[i] = object;
       }
       res.send(ids);
     });
