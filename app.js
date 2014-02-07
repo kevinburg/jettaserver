@@ -99,7 +99,10 @@ app.post('/login', function(req, res) {
 });
 
 app.get('/friends/:id/:token', function(req, res) {
-  request.get("https://graph.facebook.com/"+req.params.id+"/friends?access_token="+req.params.token, function(err, response, body) {
+  var url = "https://graph.facebook.com/"+req.params.id+
+    "/friends?access_token="+req.params.token;
+  console.log(url);
+  request.get(url, function(err, response, body) {
     var ids = [];
     var info = JSON.parse(body);
     for (var i=0; i<info.data.length; i++) {
