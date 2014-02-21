@@ -13,30 +13,43 @@ var mongoUri = process.env.MONGOLAB_URI ||
 
 var db = monk(mongoUri);
 
+var logError = function(err) {
+  console.log("ERROR: ", err)
+}
+
 app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
   var users = db.get('users');
   var collection = db.get('games');
-  object = {
-    p1 : {
-      id : req.params.p1Id,
-      pictureURL : ""
-    },
-    p2 : {
-      id : req.params.p2Id,
-      pictureURL : ""
-    },
-    playing : 2,
-    p1Word : req.params.word,
-    p2Word : "",
-    p1Guesses : [],
-    p2Guesses : [],
-    gameStatus : 0
-  };
-  collection.insert(object, {safe : true}, function(err, records){
-    res.send(object);
+  users.findOne({id : req.params.p1Id}, function(err, p1) {
+    if (err) logError(err)
+    users.findOne({id : req.params.p2Id}, function(err, p2) {
+      if (err) logError(err)
+      object = {
+	p1 : {
+	  id : p1.id,
+	  name : p1.name,
+	  pictureURL : p1.pictureURL
+	},
+	p2 : {
+	  id : p2.id,
+	  name : p2.name,
+	  pictureURL : p2.pictureURL
+	},
+	playing : 2,
+	p1Word : req.params.word,
+	p2Word : "",
+	p1Guesses : [],
+	p2Guesses : [],
+	gameStatus : 0
+      };
+      collection.insert(object, {safe : true}, function(err, records){
+	if (err) logError(err)
+	res.send(object);
+      });
+    });
   });
 });
- 
+
 app.get('/completegame/:id/:word', function(req, res) {
   var collection = db.get('games');
   var query = {_id : req.params.id};
