@@ -97,11 +97,12 @@ app.post('/login', function(req, res) {
   var id = req.body.id,
   name = req.body.name,
   pictureURL = req.body.pictureURL,
+  deviceToken = req.body.deviceToken
   collection = db.get('users'),
   query = {id : id};
   collection.find(query, {}, function(e,docs) {
     if (docs.length == 0) {
-      var object = {id : id, name : name, pictureURL : pictureURL};
+      var object = {id : id, name : name, pictureURL : pictureURL, deviceToken : deviceToken};
       collection.insert(object, {safe : true}, function(err, records) {
 	res.send(object);
       })
