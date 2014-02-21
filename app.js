@@ -102,7 +102,8 @@ app.post('/login', function(req, res) {
   query = {id : id};
   collection.find(query, {}, function(e,docs) {
     if (docs.length == 0) {
-      var object = {id : id, name : name, pictureURL : pictureURL, deviceToken : deviceToken};
+      var object = {id : id, name : name, pictureURL : pictureURL, deviceToken : deviceToken,
+		   wins : 0, losses: 0};
       collection.insert(object, {safe : true}, function(err, records) {
 	res.send(object);
       })
