@@ -2,9 +2,12 @@ var express = require('express')
 , mongo = require('mongodb')
 , monk = require('monk')
 , request = require('request')
-, https = require('https');
+, https = require('https')
+, apn = require('apn');
 app = express();
 
+var options = { "gateway": "gateway.sandbox.push.apple.com" };
+var apnConnection = new apn.Connection(options);
 app.use(express.bodyParser());
 
 var mongoUri = process.env.MONGOLAB_URI ||
@@ -15,6 +18,28 @@ var db = monk(mongoUri);
 
 var logError = function(err) {
   console.log("ERROR: ", err)
+}
+
+var sendNotification = function (token, data) {
+  var device = new apn.Device(token);
+  var note = new apn.Notification();
+  note.expiry = Math.floor(Date.now() / 1000) + 3600;
+  note.badge = 1;
+  note.sound = "ping.aiff";
+  if (data[0] == "newgame") {
+    note.alert = data[1].p1.name + " wants to play!";
+    note.payload = {"id" : data[1]._id};
+  }
+  else if (data[0] == "newmove") {
+    note.alert = "It's your move!";
+    note.payload = {"id" : data[1]._id};
+  }
+  else if (data[0] == "lost") {
+    note.alert = "You lost! Loser!";
+    note.payload = {"id" : data[1]._id};
+  }
+  apnConnection.pushNotification(note, device);
+  console.log("notification sent");
 }
 
 app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
@@ -42,8 +67,9 @@ app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
 	p2Guesses : [],
 	gameStatus : 0
       };
-      collection.insert(object, {safe : true}, function(err, records){
+      collection.insert(object, {safe : true}, function(err, data){
 	if (err) logError(err)
+	sendNotification(p2.deviceToken, ["newgame", data])
 	res.send(object);
       });
     });
@@ -65,6 +91,7 @@ app.get('/completegame/:id/:word', function(req, res) {
 
 app.get('/play/:id/:word/:matched', function(req, res) {
   var collection = db.get('games');
+  var users = db.get('users');
   var query = {_id : req.params.id};
   var game;
   collection.find(query,{},function(e,docs) {
@@ -85,6 +112,16 @@ app.get('/play/:id/:word/:matched', function(req, res) {
 		      {$set : {playing : newPlaying,
 			       p1Guesses : newP1Guesses,
 			       p2Guesses : newP2Guesses}});
+    if (newPlaying == 1) {
+      users.findOne({id : game.p1.id}, function(err, p1) {
+	sendNotification(p1.deviceToken, ["newmove", game])
+      });
+    }
+    else {
+      users.findOne({id : game.p2.id}, function(err, p2) {
+	sendNotification(p2.deviceToken, ["newmove", game])
+      });
+    }
     newGame = game;
     newGame.playing = newPlaying;
     newGame.p1Guesses = newP1Guesses;
@@ -108,6 +145,8 @@ app.post('/login', function(req, res) {
 	res.send(object);
       })
     } else {
+      collection.update({_id : req.body.id}, 
+			{$set : {deviceToken : deviceToken}});
       res.send({'ok' : 'ok'});
     }
   })
@@ -130,8 +169,8 @@ app.get('/friends/:id/:token', function(req, res) {
       for (var i=0; i<docs.length; i++) {
 	var object = {
 	  id : docs[i].id,
-	  win : 5,
-	  loss : 3
+	  win : docs[i].wins,
+	  loss : docs[i].losses
 	};
 	ids[i] = object;
       }
@@ -152,6 +191,19 @@ app.get('/endgame/:id/:res', function(req, res) {
   collection.update({_id : req.params.id}, 
 		    {$set : {gameStatus : req.params.res,
 			     playing : 0}});
+  collection.findOne({_id : req.params.id}, function(err, doc) {
+    var users = db.get('users');
+    var pid;
+    if (req.params.res == 1) {
+      pid = doc.p2.id;
+    } else {
+      pid = doc.p1.id;
+    }
+    users.findOne({id : pid}, function(err, player) {
+      sendNotification(player.deviceToken, ["lost", doc])
+    });
+    res.send(doc);
+  });
 });
 
 app.get('/games', function(req, res) {
