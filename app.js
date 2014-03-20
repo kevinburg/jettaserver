@@ -27,15 +27,15 @@ var sendNotification = function (token, data) {
   note.badge = 1;
   note.sound = "ping.aiff";
   if (data[0] == "newgame") {
-    note.alert = data[1].p1.name + " wants to play!";
+    note.alert = data[1].p1.name + " challenges you!";
     note.payload = {"id" : data[1]._id};
   }
   else if (data[0] == "newmove") {
-    note.alert = "It's your move!";
+    note.alert = "It's your move, bro!";
     note.payload = {"id" : data[1]._id};
   }
   else if (data[0] == "lost") {
-    note.alert = "You lost! Loser!";
+    note.alert = "You lost! Loser! You're bad!";
     note.payload = {"id" : data[1]._id};
   }
   apnConnection.pushNotification(note, device);
@@ -147,7 +147,7 @@ app.post('/login', function(req, res) {
     } else {
       collection.update({_id : req.body.id}, 
 			{$set : {deviceToken : deviceToken}});
-      res.send({'ok' : 'ok'});
+      res.send(docs[0]);
     }
   })
 });
@@ -195,8 +195,16 @@ app.get('/endgame/:id/:res', function(req, res) {
     var users = db.get('users');
     var pid;
     if (req.params.res == 1) {
+      users.update({id : doc.p1.id},
+		   {$inc : {wins : 1}});
+      users.update({id : doc.p2.id},
+		   {$inc : {losses : 1}});
       pid = doc.p2.id;
     } else {
+      users.update({id : doc.p2.id},
+		   {$inc : {wins : 1}});
+      users.update({id : doc.p1.id},
+		   {$inc : {losses : 1}});
       pid = doc.p1.id;
     }
     users.findOne({id : pid}, function(err, player) {
