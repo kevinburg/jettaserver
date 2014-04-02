@@ -101,12 +101,12 @@ app.get('/play/:id/:word/:matched', function(req, res) {
     newP2Guesses = game.p2Guesses;
     if (game.playing == 1) {
       newPlaying = 2;
-      newP1Guesses.push({word : req.params.word,
-			 matched : req.params.matched});
+      newP1Guesses.unshift({word : req.params.word,
+			    matched : req.params.matched});
     } else {
       newPlaying = 1;
-      newP2Guesses.push({word : req.params.word,
-			 matched : req.params.matched});
+      newP2Guesses.unshift({word : req.params.word,
+			    matched : req.params.matched});
     }
     collection.update({_id : req.params.id}, 
 		      {$set : {playing : newPlaying,
