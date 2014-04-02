@@ -140,7 +140,10 @@ app.post('/login', function(req, res) {
   collection.find(query, {}, function(e,docs) {
     if (docs.length == 0) {
       var object = {id : id, name : name, pictureURL : pictureURL, deviceToken : deviceToken,
-		   wins : 0, losses: 0};
+		    wins : 0, losses: 0, 
+		    joined: new Date().toISOString().replace(/T/, ' ')
+		    .replace(/\..+/, '').split(" ")[0],
+		    last : "No moves."};
       collection.insert(object, {safe : true}, function(err, records) {
 	res.send(object);
       })
