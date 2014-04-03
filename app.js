@@ -74,6 +74,10 @@ app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
       });
     });
   });
+  users.update({id : req.params.p1Id},
+	       {$set : {last : new Date().toISOString().replace(/T/, ' ')
+			.replace(/\..+/, '')
+		       }});
 });
 
 app.get('/completegame/:id/:word', function(req, res) {
@@ -112,16 +116,19 @@ app.get('/play/:id/:word/:matched', function(req, res) {
 		      {$set : {playing : newPlaying,
 			       p1Guesses : newP1Guesses,
 			       p2Guesses : newP2Guesses}});
+    var playerID
     if (newPlaying == 1) {
-      users.findOne({id : game.p1.id}, function(err, p1) {
-	sendNotification(p1.deviceToken, ["newmove", game])
-      });
+      playerID = game.p1.id;
+    } else {
+      playerID = game.p2.id
     }
-    else {
-      users.findOne({id : game.p2.id}, function(err, p2) {
-	sendNotification(p2.deviceToken, ["newmove", game])
-      });
-    }
+    users.findOne({id : playerID}, function(err, player) {
+      sendNotification(player.deviceToken, ["newmove", game])
+    });
+    users.update({id : playerID},
+		 {$set : {last : new Date().toISOString().replace(/T/, ' ')
+			  .replace(/\..+/, '')
+			 }});
     newGame = game;
     newGame.playing = newPlaying;
     newGame.p1Guesses = newP1Guesses;
