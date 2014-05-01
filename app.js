@@ -65,7 +65,8 @@ app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
 	p2Word : "",
 	p1Guesses : [],
 	p2Guesses : [],
-	gameStatus : 0
+	gameStatus : 0,
+	turn : 0
       };
       collection.insert(object, {safe : true}, function(err, data){
 	if (err) logError(err)
@@ -93,47 +94,56 @@ app.get('/completegame/:id/:word', function(req, res) {
   });
 });
 
-app.get('/play/:id/:word/:matched', function(req, res) {
+app.get('/play/:id/:word/:matched/:turn', function(req, res) {
   var collection = db.get('games');
   var users = db.get('users');
   var query = {_id : req.params.id};
   var game;
   collection.find(query,{},function(e,docs) {
     game = docs[0];
-    var newPlaying, newP1Guesses, newP2Guesses;
-    newP1Guesses = game.p1Guesses;
-    newP2Guesses = game.p2Guesses;
-    if (game.playing == 1) {
-      newPlaying = 2;
-      newP1Guesses.unshift({word : req.params.word,
-			    matched : req.params.matched});
+    if (req.params.turn != game.turn) {
+      console.log("Duplicate turn received. Ignoring.");
+      res.send(game);
     } else {
-      newPlaying = 1;
-      newP2Guesses.unshift({word : req.params.word,
-			    matched : req.params.matched});
+      var newPlaying, newP1Guesses, newP2Guesses;
+      newP1Guesses = game.p1Guesses;
+      newP2Guesses = game.p2Guesses;
+      if (game.playing == 1) {
+	newPlaying = 2;
+	newP1Guesses.unshift({word : req.params.word,
+			      matched : req.params.matched});
+      } else {
+	newPlaying = 1;
+	newP2Guesses.unshift({word : req.params.word,
+			      matched : req.params.matched});
+      }
+      collection.update({_id : req.params.id}, 
+			{$set : {playing : newPlaying,
+				 p1Guesses : newP1Guesses,
+				 p2Guesses : newP2Guesses,
+				 turn : game.turn+1
+				}
+			});
+      var playerID
+      if (newPlaying == 1) {
+	playerID = game.p1.id;
+      } else {
+	playerID = game.p2.id
+      }
+      users.findOne({id : playerID}, function(err, player) {
+	sendNotification(player.deviceToken, ["newmove", game])
+      });
+      users.update({id : playerID},
+		   {$set : {last : new Date().toISOString().replace(/T/, ' ')
+			    .replace(/\..+/, '')
+			   }});
+      newGame = game;
+      newGame.playing = newPlaying;
+      newGame.p1Guesses = newP1Guesses;
+      newGame.p2Guesses = newP2Guesses;
+      newGame.turn = game.turn+1;
+      res.send(newGame);
     }
-    collection.update({_id : req.params.id}, 
-		      {$set : {playing : newPlaying,
-			       p1Guesses : newP1Guesses,
-			       p2Guesses : newP2Guesses}});
-    var playerID
-    if (newPlaying == 1) {
-      playerID = game.p1.id;
-    } else {
-      playerID = game.p2.id
-    }
-    users.findOne({id : playerID}, function(err, player) {
-      sendNotification(player.deviceToken, ["newmove", game])
-    });
-    users.update({id : playerID},
-		 {$set : {last : new Date().toISOString().replace(/T/, ' ')
-			  .replace(/\..+/, '')
-			 }});
-    newGame = game;
-    newGame.playing = newPlaying;
-    newGame.p1Guesses = newP1Guesses;
-    newGame.p2Guesses = newP2Guesses;
-    res.send(newGame);
   });
 });
 
