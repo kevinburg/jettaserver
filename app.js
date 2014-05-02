@@ -6,6 +6,8 @@ var express = require('express')
 , apn = require('apn');
 app = express();
 
+var pool = [];
+
 var options = { "gateway": "gateway.sandbox.push.apple.com" };
 var apnConnection = new apn.Connection(options);
 app.use(express.bodyParser());
@@ -42,6 +44,56 @@ var sendNotification = function (token, data) {
   console.log("notification sent");
 }
 
+app.get('/matchmake/:id/:word', function(req, res) {
+  var users = db.get('users');
+  var games = db.get('games');
+  if (pool.length == 0) {
+    // Player enters empty queue
+    users.findOne({id : req.params.id}, function(err, p1) {
+      var object = {
+	p1 : {
+	  id : p1.id,
+	  name : p1.name,
+	  pictureURL : p1.pictureURL
+	},
+	p2 : {},
+	playing : 2,
+	p1Word : req.params.word,
+	p2Word : "",
+	p1Guesses : [],
+	p2Guesses : [],
+	gameStatus : 0,
+	turn : 0
+      };
+      games.insert(object, {safe : true}, function(err, data) {
+	if (err) logError(err);
+	pool = [data._id];
+	res.send(object);
+      });
+    });
+  } else {
+    console.log(pool);
+    users.findOne({id : req.params.id}, function(err, p2) {
+      id = pool[0];
+      pool = [];
+      games.findOne({_id : id}, function(err, game) {
+	var newGame = game;
+	newGame.p2 = {
+	  id : p2.id,
+	  name : p2.name,
+	  pictureURL : p2.pictureURL
+	};
+	newGame.p2Word = req.params.word;
+	games.update({_id : id},
+		     {$set : {p2 : newGame.p2,
+			      p2Word : newGame.p2Word}
+		     });
+	res.send(newGame);
+      });
+    });
+  }     
+});
+	
 app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
   var users = db.get('users');
   var collection = db.get('games');
