@@ -40,6 +40,10 @@ var sendNotification = function (token, data) {
     note.alert = "You lost! Loser! You're bad!";
     note.payload = {"id" : data[1]._id};
   }
+  else if (data[0] == "poke") {
+      note.alert = "Take your turn already!";
+      note.payload = {"id" : data[1]._id};
+  }
   apnConnection.pushNotification(note, device);
   console.log("notification sent");
 }
@@ -130,7 +134,8 @@ app.get('/addgame/:p1Id/:p2Id/:word', function(req, res) {
   users.update({id : req.params.p1Id},
 	       {$set : {last : new Date().toISOString().replace(/T/, ' ')
 			.replace(/\..+/, '')
-		       }});
+		       },
+	        $inc : {turnsPlayed : 1}});
 });
 
 app.get('/completegame/:id/:word', function(req, res) {
@@ -144,6 +149,24 @@ app.get('/completegame/:id/:word', function(req, res) {
     newGame.p2Word = req.params.word;
     res.send(newGame);
   });
+});
+
+app.get('/poke/:id', function(req, res) {
+    var collection = db.get('games');
+    var users = db.get('users');
+    var query = {_id : req.params.id};
+    collection.findOne({_id : req.params.id}, function(e, game) {
+        var playerId;
+        if (game.playing == 1) {
+            playerId = game.p1.id;
+        } else {
+            playerId = game.p2.id;
+        }
+        users.findOne({_id : playerId}, function(e, player) {
+            sendNotification(player.deviceToken, ["poke", game]);
+        });
+    });
+    res.send({'ok' : 'ok'});
 });
 
 app.get('/play/:id/:word/:matched/:turn', function(req, res) {
@@ -188,7 +211,8 @@ app.get('/play/:id/:word/:matched/:turn', function(req, res) {
       users.update({id : playerID},
 		   {$set : {last : new Date().toISOString().replace(/T/, ' ')
 			    .replace(/\..+/, '')
-			   }});
+			   },
+		    $inc : {turnsPlayed : 1}});
       newGame = game;
       newGame.playing = newPlaying;
       newGame.p1Guesses = newP1Guesses;
@@ -209,7 +233,7 @@ app.post('/login', function(req, res) {
   collection.find(query, {}, function(e,docs) {
     if (docs.length == 0) {
       var object = {id : id, name : name, pictureURL : pictureURL, deviceToken : deviceToken,
-		    wins : 0, losses: 0, 
+		    wins : 0, losses: 0, turnsPlayed: 0,
 		    joined: new Date().toISOString().replace(/T/, ' ')
 		    .replace(/\..+/, '').split(" ")[0],
 		    last : "No moves."};
